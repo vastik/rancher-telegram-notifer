@@ -5,6 +5,8 @@ const express = require('express');
 const telegram = require('node-telegram-bot-api');
 const low = require('lowdb');
 const FileSync = require('lowdb/adapters/FileSync');
+const lodash = require('lodash')
+
 const adapter = new FileSync(process.env.DATABASE_FILE || 'db.json');
 const db = low(adapter);
 const token = process.env.TELEGRAM_TOKEN;
@@ -25,11 +27,19 @@ app.use(express.json());
 
 app.post("/alert", function (req, res) {
     const chats = db.get('chats').value()
-    const labels = req.body['commonLabels'] || {};
-    const message = Object.keys(labels).map(e => `${e}: ${labels[e]}`).join('\n')
-    console.log(`[alert]`.magenta, labels['severity'], labels['alert_type'], labels['alert_name']);
-    console.log("[telegram]".bold.cyan, "sending to", chats);
-    chats.forEach(e => bot.sendMessage(e, message).catch(ex => console.warn(e, ex)));
+    const alerts = req.body['alerts'] || []
+
+    alerts.forEach(alert => {
+        const labels = alert['labels']
+        const message = Object.keys(labels).map(e => `${e}: ${labels[e]}`).join('\n')
+
+        if (message) {
+            console.log(`[alert]`.magenta, labels['severity'], labels['alert_type'], labels['alert_name']);
+            console.log("[telegram]".bold.cyan, "sending to", chats);
+            chats.forEach(e => bot.sendMessage(e, message).catch(ex => console.warn(e, ex.message)));
+        }
+    })
+
     res.status(200).json({});
 })
 
